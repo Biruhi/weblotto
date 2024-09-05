@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask YouTube Video Embed</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+
+    <h1>Submit a YouTube Video</h1>
+    <form id="dataForm" action="/" method="POST">
+        <input type="text" name="user_input" id="user_input" placeholder="Enter YouTube video ID" required>
+        <button type="submit" id="submit_btn">Submit</button>
+    </form>
+
+    <h2>Random YouTube Video</h2>
+    <div id="video_container">
+        <!-- Embedded YouTube video -->
+        <iframe id="youtube_video" width="560" height="315" src="" frameborder="0" allowfullscreen></iframe>
+    </div>
+
+    <h3>Next Video Update In: <span id="timer">60</span> seconds</h3>
+
+    <script>
+    let countdownTime = 60;  // Timer countdown value in seconds
+
+    // Function to calculate the remaining time based on server response
+    function calculateRemainingTime(lastUpdateTime) {
+        const lastUpdate = new Date(lastUpdateTime);  // Convert server time to Date object
+        const currentTime = new Date();  // Current client time
+
+        const elapsedTime = (currentTime - lastUpdate) / 1000;  // Elapsed time in seconds
+        const timeLeft = 60 - Math.floor(elapsedTime);  // Time left until the next minute mark
+        return timeLeft > 0 ? timeLeft : 60;  // Return time left, or reset to 60 if negative
+    }
+
+    // Function to fetch the latest video ID and remaining time from the server
+    function fetchLatestData() {
+        $.get('/get_latest_data', function(data) {
+            if (data.random_data) {
+                // Construct the YouTube embed URL
+                const youtube_base_url = "https://www.youtube.com/embed/";
+                const youtube_video_url = youtube_base_url + data.random_data;
+                
+                // Update the iframe source to embed the video
+                $('#youtube_video').attr('src', youtube_video_url);
+
+                // Calculate remaining time until next video update
+                countdownTime = calculateRemainingTime(data.last_update_time);
+                $('#timer').text(countdownTime);  // Update the countdown timer display
+            }
+        });
+    }
+
+    // Function to start the countdown timer and fetch the latest video when it reaches zero
+    function startCountdown() {
+        let timerInterval = setInterval(function() {
+            countdownTime--;  // Decrease the timer
+            $('#timer').text(countdownTime);  // Update the displayed countdown
+
+            // When countdown reaches zero
+            if (countdownTime <= 0) {
+                fetchLatestData();  // Fetch new video
+                countdownTime = 60;  // Reset countdown to 60 seconds
+            }
+        }, 1000);  // Update the timer every second
+    }
+
+    // Start the countdown timer when the page loads
+    $(document).ready(function() {
+        fetchLatestData();  // Load the first video and remaining time when the page loads
+        startCountdown();  // Start the countdown timer
+
+        // Modify form submission behavior
+        $('#dataForm').on('submit', function(event) {
+            event.preventDefault();  // Prevent default form submission
+
+            // Submit form data via AJAX
+            $.ajax({
+                type: 'POST',
+                url: '/',
+                data: $(this).serialize(),
+                success: function(response) {
+                    console.log('Form submitted successfully');
+                }
+            });
+
+            // Fetch the latest video and open it in a new tab
+            $.get('/get_latest_data', function(data) {
+                if (data.random_data) {
+                    const youtube_watch_url = "https://www.youtube.com/watch?v=" + data.random_data;
+                    window.open(youtube_watch_url, '_blank');  // Open the video in a new tab
+                }
+            });
+        });
+    });
+</script>
+
+
+</body>
+</html>
